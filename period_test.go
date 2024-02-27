@@ -30,6 +30,33 @@ func TestNewPeriod(t *testing.T) {
 	})
 }
 
+func TestPeriod_Periodical_Properties(t *testing.T) {
+	want := []Time[tz.UTC]{
+		New[tz.UTC](2014, 2, 5, 0, 0, 0, 0),
+		New[tz.UTC](2014, 2, 6, 0, 0, 0, 0),
+		New[tz.UTC](2014, 2, 7, 0, 0, 0, 0),
+		New[tz.UTC](2014, 2, 8, 0, 0, 0, 0),
+	}
+	t.Run("Time[UTC] params", func(t *testing.T) {
+		period, err := NewPeriod[tz.UTC](
+			New[tz.UTC](2014, 2, 5, 0, 0, 0, 0),
+			New[tz.UTC](2014, 2, 8, 0, 0, 0, 0),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		periodical := period.PeriodicDuration(24 * time.Hour)
+		var _ <-chan Time[tz.UTC] = periodical // Property 1: assignable to <-chan Time[tz.UTC]
+		var got []Time[tz.UTC]
+		for v := range periodical { // Property 2: can used in range clause
+			got = append(got, v)
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("(-want, +got)\n%s", diff)
+		}
+	})
+}
+
 func TestPeriod_Slice(t *testing.T) {
 	want := []Time[tz.UTC]{
 		New[tz.UTC](2014, 2, 5, 0, 0, 0, 0),
