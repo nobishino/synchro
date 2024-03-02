@@ -2,6 +2,7 @@ package synchro
 
 import (
 	"fmt"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -77,6 +78,26 @@ func (p periodical[T]) Slice() (s []Time[T]) {
 	return s
 }
 
+// markDone is a method to close the channel.
+//
+// It is safe to call this method multiple times.
+func (p periodical[T]) markDone() {
+	periodicalCloser[p]()
+}
+
+func setDoneMarker[T TimeZone](p periodical[T], markDone func()) {
+	periodicalCloser[p] = markDone
+}
+
+// periodicalCloser is a map to store the closer function.
+//
+// Since we already expose the underlying type of periodical[T](which is a channel),
+// we can't add unexported fields to store the done channel or something like that.
+// So, we use a package variable to store done channels for each instance.
+//
+// TODO: we would hide this variable behind a closure, but expose this for simplicity now.
+var periodicalCloser = make(map[any]func())
+
 // Periodic returns a channel that emits Time[T] values at regular intervals
 // between the start and end times of the Period[T]. The interval is specified
 // by the next function argument.
@@ -93,10 +114,25 @@ func (p Period[T]) Periodic(next func(Time[T]) Time[T]) periodical[T] {
 		compare = isNotBefore[T]
 	}
 	ch := make(chan Time[T], 1)
+
+	done := make(chan struct{})
+	var doneOnce sync.Once // to avoid closing the done channel multiple times
+	doneMarker := func() {
+		doneOnce.Do(func() {
+			close(done)
+		})
+	}
+	var result periodical[T] = ch
+	setDoneMarker(result, doneMarker)
+
 	go func() {
 		defer close(ch)
 		for current := p.from; compare(current, p.to); current = next(current) {
-			ch <- current
+			select {
+			case <-done:
+				return
+			case ch <- current:
+			}
 		}
 	}()
 	return ch
