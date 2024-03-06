@@ -77,6 +77,24 @@ func (p periodical[T]) Slice() (s []Time[T]) {
 	return s
 }
 
+// Seq returns the sequence of Time[T].
+// TODO: return type should be changed to iter.Seq[Time[T]] when it is supported.
+func (p periodical[T]) Seq() func(yield func(Time[T]) bool) {
+	return func(yield func(Time[T]) bool) {
+		for current := range p {
+			if !yield(current) {
+				break
+			}
+		}
+		go func() {
+			for range p {
+				// Prevents leakage of the sending goroutine by receiving
+				// all values sent to periodical[T].
+			}
+		}()
+	}
+}
+
 // Periodic returns a channel that emits Time[T] values at regular intervals
 // between the start and end times of the Period[T]. The interval is specified
 // by the next function argument.

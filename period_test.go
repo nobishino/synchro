@@ -30,6 +30,111 @@ func TestNewPeriod(t *testing.T) {
 	})
 }
 
+// TODO: Add tests to use Seq with range over function syntax.
+func TestPeriod_Seq_ReadAllAsSlice(t *testing.T) {
+	want := []Time[tz.UTC]{
+		New[tz.UTC](2014, 2, 5, 0, 0, 0, 0),
+		New[tz.UTC](2014, 2, 6, 0, 0, 0, 0),
+		New[tz.UTC](2014, 2, 7, 0, 0, 0, 0),
+		New[tz.UTC](2014, 2, 8, 0, 0, 0, 0),
+	}
+
+	t.Run("Time[UTC] params", func(t *testing.T) {
+		period, err := NewPeriod[tz.UTC](
+			New[tz.UTC](2014, 2, 5, 0, 0, 0, 0),
+			New[tz.UTC](2014, 2, 8, 0, 0, 0, 0),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seq := period.PeriodicDuration(24 * time.Hour).Seq()
+		got := seqToSlice(t, seq)
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("(-want, +got)\n%s", diff)
+		}
+	})
+	t.Run("time.Time params", func(t *testing.T) {
+		period, err := NewPeriod[tz.UTC](
+			time.Date(2014, 2, 5, 0, 0, 0, 0, time.UTC),
+			time.Date(2014, 2, 8, 0, 0, 0, 0, time.UTC),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seq := period.PeriodicDate(0, 0, 1).Seq()
+		got := seqToSlice(t, seq)
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("(-want, +got)\n%s", diff)
+		}
+	})
+	t.Run("string params", func(t *testing.T) {
+		period, err := NewPeriod[tz.UTC]("2014-02-05", "2014-02-08")
+		if err != nil {
+			t.Fatal(err)
+		}
+		seq := period.PeriodicAdvance(Day(1)).Seq()
+		got := seqToSlice(t, seq)
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("(-want, +got)\n%s", diff)
+		}
+	})
+	t.Run("alternative string params", func(t *testing.T) {
+		type XString string
+		period, err := NewPeriod[tz.UTC](XString("2014-02-05"), XString("2014-02-08"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		seq := period.PeriodicDuration(24 * time.Hour).Seq()
+		got := seqToSlice(t, seq)
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("(-want, +got)\n%s", diff)
+		}
+	})
+	t.Run("[]byte params", func(t *testing.T) {
+		period, err := NewPeriod[tz.UTC]([]byte("2014-02-05"), []byte("2014-02-08"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		seq := period.PeriodicDate(0, 0, 1).Seq()
+		got := seqToSlice(t, seq)
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("(-want, +got)\n%s", diff)
+		}
+	})
+	t.Run("alternative []byte params", func(t *testing.T) {
+		period, err := NewPeriod[tz.UTC]([]byte("2014-02-05"), []byte("2014-02-08"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		seq := period.PeriodicAdvance(Day(1)).Seq()
+		got := seqToSlice(t, seq)
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("(-want, +got)\n%s", diff)
+		}
+	})
+	t.Run("complex params", func(t *testing.T) {
+		period, err := NewPeriod[tz.UTC](New[tz.UTC](2014, 2, 5, 0, 0, 0, 0), "2014-02-08")
+		if err != nil {
+			t.Fatal(err)
+		}
+		seq := period.PeriodicDuration(24 * time.Hour).Seq()
+		got := seqToSlice(t, seq)
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("(-want, +got)\n%s", diff)
+		}
+	})
+}
+
+func seqToSlice[T any](t *testing.T, seq func(yield func(T) bool)) []T {
+	t.Helper()
+	var s []T
+	seq(func(v T) bool {
+		s = append(s, v)
+		return true
+	})
+	return s
+}
+
 func TestPeriod_Slice(t *testing.T) {
 	want := []Time[tz.UTC]{
 		New[tz.UTC](2014, 2, 5, 0, 0, 0, 0),
